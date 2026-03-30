@@ -1,0 +1,230 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: images
+    // Document ID: imageId
+    // Fields:
+    //   - id: string (required) - unique ID
+    //   - uid: string (required) - owner's UID
+    //   - url: string (required) - image URL
+    //   - title: string (required) - image title
+    //   - description: string (optional) - AI description
+    //   - tags: list (optional) - array of strings
+    //   - priority: string (optional) - Hoch, Mittel, Niedrig
+    //   - activity: string (optional) - source activity
+    //   - cluster: string (optional) - main cluster
+    //   - subcluster: string (optional) - subcluster
+    //   - date: string (required) - ISO date string
+    //   - size: string (optional) - file size
+    //   - sourcePath: string (optional) - original path
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.uid;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.email == "Andreas76761@gmail.com" && request.auth.token.email_verified == true);
+    }
+
+    function isValidImage(data) {
+      return data.keys().hasAll(['id', 'uid', 'url', 'title', 'date']) &&
+             data.id is string && data.id.size() > 0 &&
+             data.uid is string && data.uid == request.auth.uid &&
+             data.url is string && data.url.size() > 0 &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 255 &&
+             data.date is string && data.date.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$") &&
+             (!('description' in data) || (data.description is string && data.description.size() < 2000)) &&
+             (!('tags' in data) || (data.tags is list && data.tags.size() < 50)) &&
+             (!('priority' in data) || (data.priority in ['Hoch', 'Mittel', 'Niedrig'])) &&
+             (!('activity' in data) || (data.activity is string && data.activity.size() < 100)) &&
+             (!('cluster' in data) || (data.cluster is string && data.cluster.size() < 100)) &&
+             (!('subcluster' in data) || (data.subcluster is string && data.subcluster.size() < 100)) &&
+             (!('size' in data) || (data.size is string && data.size.size() < 50)) &&
+             (!('sourcePath' in data) || (data.sourcePath is string && data.sourcePath.size() < 500));
+    }
+
+    function isValidKiResource(data) {
+      return data.keys().hasAll(['id', 'uid', 'title', 'description', 'link', 'category', 'date']) &&
+             data.id is string && data.id.size() > 0 &&
+             data.uid is string && data.uid == request.auth.uid &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 255 &&
+             data.description is string && data.description.size() > 0 && data.description.size() < 2000 &&
+             data.link is string && data.link.size() > 0 && data.link.size() < 500 &&
+             data.category in ['Learning', 'News', 'Directory', 'Community'] &&
+             data.date is string && data.date.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$") &&
+             (!('longDescription' in data) || (data.longDescription is string && data.longDescription.size() < 5000)) &&
+             (!('screenshots' in data) || (data.screenshots is list && data.screenshots.size() < 10));
+    }
+
+    function isValidKiTool(data) {
+      return data.keys().hasAll(['id', 'uid', 'name', 'access', 'date']) &&
+             data.id is string && data.id.size() > 0 &&
+             data.uid is string && data.uid == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 255 &&
+             data.access in ["ja", "nein", "Planung", "in genehmigung", "verboten", "gecancelt"] &&
+             data.date is string && data.date.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$") &&
+             (!('link' in data) || (data.link is string && data.link.size() < 500)) &&
+             (!('costs' in data) || (data.costs is string && data.costs.size() < 255)) &&
+             (!('purpose' in data) || (data.purpose is string && data.purpose.size() < 2000)) &&
+             (!('privateComment' in data) || (data.privateComment is string && data.privateComment.size() < 2000)) &&
+             (!('pros' in data) || (data.pros is list && data.pros.size() < 20)) &&
+             (!('cons' in data) || (data.cons is list && data.cons.size() < 20)) &&
+             (!('competitors' in data) || (data.competitors is list && data.competitors.size() < 20)) &&
+             (!('category' in data) || (data.category is string && data.category.size() < 100)) &&
+             (!('euAiAct' in data) || (data.euAiAct is bool)) &&
+             (!('cloudStorage' in data) || (data.cloudStorage is bool)) &&
+             (!('customerScore' in data) || (data.customerScore is number)) &&
+             (!('securityLabel' in data) || (data.securityLabel is string && data.securityLabel.size() < 255));
+    }
+
+    function isValidPrompt(data) {
+      return data.keys().hasAll(['id', 'uid', 'title', 'category', 'content', 'description', 'date']) &&
+             data.id is string && data.id.size() > 0 &&
+             data.uid is string && data.uid == request.auth.uid &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 255 &&
+             data.category is string && data.category.size() > 0 &&
+             data.content is string && data.content.size() > 0 && data.content.size() < 10000 &&
+             data.description is string && data.description.size() > 0 && data.description.size() < 1000 &&
+             data.date is string && data.date.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$") &&
+             (!('longDescription' in data) || (data.longDescription is string && data.longDescription.size() < 5000)) &&
+             (!('screenshots' in data) || (data.screenshots is list && data.screenshots.size() < 10));
+    }
+
+    function isValidStackOverflowTicket(data) {
+      return data.keys().hasAll(['id', 'uid', 'title', 'category', 'question', 'answer', 'description', 'date']) &&
+             data.id is string && data.id.size() > 0 &&
+             data.uid is string && data.uid == request.auth.uid &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 255 &&
+             data.category is string && data.category.size() > 0 &&
+             data.question is string && data.question.size() > 0 && data.question.size() < 5000 &&
+             data.answer is string && data.answer.size() > 0 && data.answer.size() < 10000 &&
+             data.description is string && data.description.size() > 0 && data.description.size() < 1000 &&
+             data.date is string && data.date.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$") &&
+             (!('longDescription' in data) || (data.longDescription is string && data.longDescription.size() < 5000)) &&
+             (!('screenshots' in data) || (data.screenshots is list && data.screenshots.size() < 10)) &&
+             (!('votes' in data) || (data.votes is number)) &&
+             (!('author' in data) || (data.author is string)) &&
+             (!('tags' in data) || (data.tags is list));
+    }
+
+    function isValidKiCategory(data) {
+      return data.keys().hasAll(['id', 'uid', 'name']) &&
+             data.id is string && data.id.size() > 0 &&
+             data.uid is string && data.uid == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100;
+    }
+
+    function isValidTodoTask(data) {
+      return data.keys().hasAll(['id', 'uid', 'title', 'description', 'status', 'priority', 'date', 'taskNumber', 'creatorName']) &&
+             data.id is string && data.id.size() > 0 &&
+             data.uid is string && data.uid == request.auth.uid &&
+             data.taskNumber is string && data.taskNumber.size() > 0 &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 255 &&
+             data.description is string && data.description.size() < 2000 &&
+             data.status in ['To Do', 'In Progress', 'Review', 'Done'] &&
+             data.priority in ['Hoch', 'Mittel', 'Niedrig'] &&
+             data.creatorName is string && data.creatorName.size() > 0 &&
+             data.date is string && data.date.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$") &&
+             (!('dueDate' in data) || (data.dueDate is string && data.dueDate.size() < 50)) &&
+             (!('tags' in data) || (data.tags is list && data.tags.size() < 20)) &&
+             (!('kiCategory' in data) || (data.kiCategory is string && data.kiCategory.size() < 100)) &&
+             (!('kiToolId' in data) || (data.kiToolId is string && data.kiToolId.size() < 100)) &&
+             (!('muralPosition' in data) || (data.muralPosition is map && data.muralPosition.keys().hasAll(['x', 'y'])));
+    }
+
+    function isValidAiSkill(data) {
+      return data.keys().hasAll(['id', 'uid', 'name', 'type', 'description', 'date']) &&
+             data.id is string && data.id.size() > 0 &&
+             data.uid is string && data.uid == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 255 &&
+             data.type in ['Skill', 'Agent', 'Plugin', 'MCP', 'API'] &&
+             data.description is string && data.description.size() > 0 && data.description.size() < 2000 &&
+             data.date is string && data.date.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$") &&
+             (!('toolId' in data) || (data.toolId is string && data.toolId.size() < 100)) &&
+             (!('link' in data) || (data.link is string && data.link.size() < 500)) &&
+             (!('tags' in data) || (data.tags is list && data.tags.size() < 20));
+    }
+
+    match /images/{imageId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && isValidImage(request.resource.data);
+      allow update: if (isDocOwner() || isAdmin()) && isValidImage(request.resource.data) && 
+                      request.resource.data.uid == resource.data.uid;
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /ki-tools/{toolId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && isValidKiTool(request.resource.data);
+      allow update: if (isDocOwner() || isAdmin()) && isValidKiTool(request.resource.data) && 
+                      request.resource.data.uid == resource.data.uid;
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /ki-categories/{categoryId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && isValidKiCategory(request.resource.data);
+      allow update: if (isDocOwner() || isAdmin()) && isValidKiCategory(request.resource.data) && 
+                      request.resource.data.uid == resource.data.uid;
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /ki_resources/{resourceId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && isValidKiResource(request.resource.data);
+      allow update: if (isDocOwner() || isAdmin()) && isValidKiResource(request.resource.data) && 
+                      request.resource.data.uid == resource.data.uid;
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /prompts/{promptId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && isValidPrompt(request.resource.data);
+      allow update: if (isDocOwner() || isAdmin()) && isValidPrompt(request.resource.data) && 
+                      request.resource.data.uid == resource.data.uid;
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /stack-overflow/{ticketId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && isValidStackOverflowTicket(request.resource.data);
+      allow update: if (isDocOwner() || isAdmin()) && isValidStackOverflowTicket(request.resource.data) && 
+                      request.resource.data.uid == resource.data.uid;
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /todo-tasks/{taskId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && isValidTodoTask(request.resource.data);
+      allow update: if (isDocOwner() || isAdmin()) && isValidTodoTask(request.resource.data) && 
+                      request.resource.data.uid == resource.data.uid;
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /ai-skills/{skillId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && isValidAiSkill(request.resource.data);
+      allow update: if (isDocOwner() || isAdmin()) && isValidAiSkill(request.resource.data) && 
+                      request.resource.data.uid == resource.data.uid;
+      allow delete: if isDocOwner() || isAdmin();
+    }
+  }
+}

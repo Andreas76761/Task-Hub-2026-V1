@@ -1,0 +1,121 @@
+{
+  "entities": {
+    "Image": {
+      "title": "Image Metadata",
+      "description": "Metadata for an image in the database",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID of the image" },
+        "uid": { "type": "string", "description": "User ID of the owner" },
+        "url": { "type": "string", "description": "URL of the image" },
+        "title": { "type": "string", "description": "Title of the image" },
+        "description": { "type": "string", "description": "AI-generated description" },
+        "tags": { "type": "array", "items": { "type": "string" }, "description": "List of tags" },
+        "priority": { "type": "string", "enum": ["Hoch", "Mittel", "Niedrig"] },
+        "activity": { "type": "string", "description": "Source activity" },
+        "cluster": { "type": "string", "description": "Main cluster" },
+        "subcluster": { "type": "string", "description": "Subcluster" },
+        "date": { "type": "string", "format": "date-time", "description": "Import date" },
+        "size": { "type": "string", "description": "File size" },
+        "sourcePath": { "type": "string", "description": "Original file path" }
+      },
+      "required": ["id", "uid", "url", "title", "date"]
+    },
+    "KiTool": {
+      "title": "KI Tool",
+      "description": "Metadata for an AI tool",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "link": { "type": "string" },
+        "costs": { "type": "string" },
+        "access": { "type": "string", "enum": ["ja", "nein", "Planung", "in genehmigung", "verboten", "gecancelt"] },
+        "purpose": { "type": "string" },
+        "pros": { "type": "array", "items": { "type": "string" } },
+        "cons": { "type": "array", "items": { "type": "string" } },
+        "competitors": { "type": "array", "items": { "type": "string" } },
+        "category": { "type": "string", "description": "Category of the AI tool" },
+        "euAiAct": { "type": "boolean", "description": "EU AI Act compliance status" },
+        "cloudStorage": { "type": "boolean", "description": "Whether data is stored in the cloud" },
+        "customerScore": { "type": "number", "description": "Customer satisfaction score" },
+        "securityLabel": { "type": "string", "description": "Security certification or label" },
+        "date": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "uid", "name", "access", "date"]
+    },
+    "KiCategory": {
+      "title": "KI Category",
+      "description": "Category for AI tools",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "name": { "type": "string" }
+      },
+      "required": ["id", "uid", "name"]
+    },
+    "TodoTask": {
+      "title": "Todo Task",
+      "description": "A task in the todo board",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "taskNumber": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["To Do", "In Progress", "Review", "Done"] },
+        "priority": { "type": "string", "enum": ["Hoch", "Mittel", "Niedrig"] },
+        "date": { "type": "string", "format": "date-time" },
+        "dueDate": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "creatorName": { "type": "string" },
+        "kiCategory": { "type": "string" },
+        "kiToolId": { "type": "string" },
+        "muralPosition": { "type": "object", "properties": { "x": { "type": "number" }, "y": { "type": "number" } } }
+      },
+      "required": ["id", "uid", "taskNumber", "title", "description", "status", "priority", "date", "creatorName"]
+    },
+    "AiSkill": {
+      "title": "AI Skill / Agent",
+      "description": "Metadata for an AI skill, agent, plugin, etc.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["Skill", "Agent", "Plugin", "MCP", "API"] },
+        "description": { "type": "string" },
+        "link": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "toolId": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "uid", "name", "type", "description", "date"]
+    }
+  },
+  "firestore": {
+    "/images/{imageId}": {
+      "schema": "Image",
+      "description": "Collection of image metadata documents"
+    },
+    "/ki-tools/{toolId}": {
+      "schema": "KiTool",
+      "description": "Collection of AI tools"
+    },
+    "/ki-categories/{categoryId}": {
+      "schema": "KiCategory",
+      "description": "Collection of AI tool categories"
+    },
+    "/todo-tasks/{taskId}": {
+      "schema": "TodoTask",
+      "description": "Collection of todo tasks"
+    },
+    "/ai-skills/{skillId}": {
+      "schema": "AiSkill",
+      "description": "Collection of AI skills and agents"
+    }
+  }
+}

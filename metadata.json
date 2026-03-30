@@ -1,0 +1,7 @@
+{
+  "name": "Bilddatenbank & KI-Analyse",
+  "description": "Zentrale Verwaltung und KI-gestützte Analyse von Medien mit Sprachsteuerung.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
